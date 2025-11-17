@@ -53,7 +53,81 @@ def list_all_movies():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/movies/search', methods=['GET'])
+def list_specific_movie():
+    """Recherche un film par nom OU par acteur"""
+    movie_name = request.args.get('name')
+    actor_name = request.args.get('actor')
 
+    if not movie_name and not actor_name:
+        return jsonify({
+            'success': False,
+            'error': 'Paramètre "name" ou "actor" requis'
+        }), 400
+
+    try:
+        query = {}
+        if movie_name:
+            query['title'] = {'$regex': movie_name, '$options': 'i'}
+        if actor_name:
+            query['cast'] = {'$regex': actor_name, '$options': 'i'}
+
+        projection = {
+            'title': 1,
+            'year': 1,
+            'genres': 1,
+            'directors': 1,
+            'cast': 1,
+            'plot': 1,
+            'imdb.rating': 1,
+            '_id': 0
+        }
+
+        movies = list(movies_collection.find(query, projection).limit(50))
+
+        return jsonify({
+            'success': True,
+            'count': len(movies),
+            'movies': movies
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+
+@app.route('/movies/<movie_name>', methods=['PUT'])
+def update_movie_info(movie_name):
+    """Met à jour les informations d'un film"""
+    try:
+        update_data = request.get_json()
+
+        if not update_data:
+            return jsonify({
+                'success': False,
+                'error': 'Données de mise à jour requises'
+            }), 400
+
+        # Supprimer _id s'il est présent
+        update_data.pop('_id', None)
+
+        result = movies_collection.update_one(
+            {'title': {'$regex': f'^{movie_name}$', '$options': 'i'}},
+            {'$set': update_data}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({
+                'success': False,
+                'error': 'Film non trouvé'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'message': f'Film "{movie_name}" mis à jour',
+            'modified_count': result.modified_count
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
