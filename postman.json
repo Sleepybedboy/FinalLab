@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "Movies API - MongoDB & Neo4j",
+    "_postman_id": "b5b63d2e-3e8f-44d8-97ec-0beab843912d",
+    "description": "Collection Postman pour l'API Flask Movies avec MongoDB Atlas & Neo4j Sandbox.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET /",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/"
+      }
+    },
+    {
+      "name": "GET /health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "GET /movies",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/movies?page=1&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["movies"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "GET /movies/search (name)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/movies/search?name=Matrix"
+      }
+    },
+    {
+      "name": "GET /movies/search (actor)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/movies/search?actor=Reeves"
+      }
+    },
+    {
+      "name": "PUT /movies/{movie_name}",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"plot\": \"Updated description\",\n  \"year\": 2000\n}"
+        },
+        "url": "{{base_url}}/movies/The Matrix"
+      }
+    },
+    {
+      "name": "GET /movies/common",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/movies/common"
+      }
+    },
+    {
+      "name": "GET /movies/{movie_name}/users",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/movies/The Matrix/users"
+      }
+    },
+    {
+      "name": "GET /users/{user_name}",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/users/Keanu"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    }
+  ]
+}
