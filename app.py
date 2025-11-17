@@ -53,7 +53,137 @@ def list_all_movies():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/users/<user_name>', methods=['GET'])
+def get_user_with_rated_movies(user_name):
+    """Retourne un utilisateur avec le nombre de films notés et la liste"""
+    try:
+        with neo4j_driver.session() as session:
+            query = """
+            MATCH (p:Person)-[r:REVIEWED]->(m:Movie)
+            WHERE p.name =~ $user_name
+            RETURN p.name as user_name,
+                   p.born as born,
+                   count(m) as movies_rated_count,
+                   collect({
+                       title: m.title,
+                       released: m.released,
+                       rating: r.rating,
+                       summary: r.summary
+                   }) as rated_movies
+            """
+            result = session.run(query, user_name=f'(?i).*{user_name}.*')
 
+            record = result.single()
+
+            if not record:
+                return jsonify({
+                    'success': False,
+                    'error': 'Utilisateur non trouvé ou aucun film noté'
+                }), 404
+
+            return jsonify({
+                'success': True,
+                'user': record['user_name'],
+                'born': record['born'],
+                'movies_rated_count': record['movies_rated_count'],
+                'rated_movies': record['rated_movies']
+            }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+
+@app.route('/', methods=['GET'])
+def root():
+    """Documentation de l'API"""
+    return jsonify({
+        'message': 'API Movies - MongoDB Atlas & Neo4j Sandbox',
+        'endpoints': {
+            '1. GET /movies?page=1&limit=20': 'Liste tous les films (MongoDB)',
+            '2. GET /movies/search?name=xxx&actor=yyy': 'Recherche par nom ou acteur (MongoDB)',
+            '3. PUT /movies/{movie_name}': 'Met a jour un film (MongoDB)',
+            '4. GET /movies/common': 'Films communs MongoDB/Neo4j',
+            '5. GET /movies/{movie_name}/users': 'Users ayant note un film (Neo4j)',
+            '6. GET /users/{user_name}': 'User avec films notes (Neo4j)',
+            '7. GET /health': 'Verifier les connexions avec MongoDB Atlas et Neo4J sandbox'
+        }
+    })
+
+@app.route('/movies/search', methods=['GET'])
+def list_specific_movie():
+    """Recherche un film par nom OU par acteur"""
+    movie_name = request.args.get('name')
+    actor_name = request.args.get('actor')
+
+    if not movie_name and not actor_name:
+        return jsonify({
+            'success': False,
+            'error': 'Paramètre "name" ou "actor" requis'
+        }), 400
+
+    try:
+        query = {}
+        if movie_name:
+            query['title'] = {'$regex': movie_name, '$options': 'i'}
+        if actor_name:
+            query['cast'] = {'$regex': actor_name, '$options': 'i'}
+
+        projection = {
+            'title': 1,
+            'year': 1,
+            'genres': 1,
+            'directors': 1,
+            'cast': 1,
+            'plot': 1,
+            'imdb.rating': 1,
+            '_id': 0
+        }
+
+        movies = list(movies_collection.find(query, projection).limit(50))
+
+        return jsonify({
+            'success': True,
+            'count': len(movies),
+            'movies': movies
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+
+@app.route('/movies/<movie_name>', methods=['PUT'])
+def update_movie_info(movie_name):
+    """Met à jour les informations d'un film"""
+    try:
+        update_data = request.get_json()
+
+        if not update_data:
+            return jsonify({
+                'success': False,
+                'error': 'Données de mise à jour requises'
+            }), 400
+
+        # Supprimer _id s'il est présent
+        update_data.pop('_id', None)
+
+        result = movies_collection.update_one(
+            {'title': {'$regex': f'^{movie_name}$', '$options': 'i'}},
+            {'$set': update_data}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({
+                'success': False,
+                'error': 'Film non trouvé'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'message': f'Film "{movie_name}" mis à jour',
+            'modified_count': result.modified_count
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
